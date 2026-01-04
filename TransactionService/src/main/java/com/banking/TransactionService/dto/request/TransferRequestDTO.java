@@ -1,8 +1,10 @@
 package com.banking.TransactionService.dto.request;
 
 
-import java.math.BigDecimal;
+import lombok.Data;
 
+import java.math.BigDecimal;
+@Data
 public class TransferRequestDTO {
 
     private String fromAccountId;

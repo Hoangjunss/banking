@@ -1,7 +1,9 @@
 package com.banking.TransactionService.dto.request;
 
-import java.math.BigDecimal;
+import lombok.Data;
 
+import java.math.BigDecimal;
+@Data
 public class WithdrawRequestDTO {
 
     private String fromAccountId;
