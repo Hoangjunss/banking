@@ -3,7 +3,7 @@ package com.banking.TransactionService.dto.response;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public class TransactionHistoryResponse {
+public class TransactionHistoryResponseDTO {
 
     private String transactionId;
     private String referenceCode;

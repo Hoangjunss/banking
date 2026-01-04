@@ -1,11 +1,14 @@
 package com.banking.TransactionService.entity;
 
 import jakarta.persistence.*;
+import lombok.Builder;
+import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
-
+@Data
+@Builder
 @Entity
 @Table(name = "transaction_entries")
 public class TransactionEntry {

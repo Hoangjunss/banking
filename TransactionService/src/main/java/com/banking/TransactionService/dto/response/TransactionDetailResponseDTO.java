@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-public class TransactionDetailResponse {
+public class TransactionDetailResponseDTO {
 
     private String transactionId;
     private String referenceCode;
@@ -15,5 +15,5 @@ public class TransactionDetailResponse {
     private Instant createdAt;
     private Instant completedAt;
 
-    private List<TransactionEntryResponse> entries;
+    private List<TransactionEntryResponseDTO> entries;
 }

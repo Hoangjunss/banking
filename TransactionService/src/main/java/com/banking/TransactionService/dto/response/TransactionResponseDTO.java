@@ -4,7 +4,7 @@ package com.banking.TransactionService.dto.response;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public class TransactionResponse {
+public class TransactionResponseDTO {
 
     private String transactionId;
     private String referenceCode;
