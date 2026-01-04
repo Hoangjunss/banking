@@ -15,5 +15,5 @@ public class TransactionDetailResponseDTO {
     private Instant createdAt;
     private Instant completedAt;
 
-    private List<TransactionEntryResponse> entries;
+    private List<TransactionEntryResponseDTO> entries;
 }
