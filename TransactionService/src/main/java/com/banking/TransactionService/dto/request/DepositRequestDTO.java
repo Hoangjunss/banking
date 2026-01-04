@@ -2,7 +2,7 @@ package com.banking.TransactionService.dto.request;
 
 import java.math.BigDecimal;
 
-public class DepositRequest {
+public class DepositRequestDTO {
 
     private String toAccountId;
     private BigDecimal amount;

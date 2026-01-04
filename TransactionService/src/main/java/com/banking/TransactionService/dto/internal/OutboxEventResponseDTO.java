@@ -2,7 +2,7 @@ package com.banking.TransactionService.dto.internal;
 
 import java.time.Instant;
 
-public class OutboxEventResponse {
+public class OutboxEventResponseDTO {
 
     private String eventType;
     private String aggregateType;

@@ -2,7 +2,7 @@ package com.banking.TransactionService.dto.request;
 
 import java.math.BigDecimal;
 
-public class WithdrawRequest {
+public class WithdrawRequestDTO {
 
     private String fromAccountId;
     private BigDecimal amount;

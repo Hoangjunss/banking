@@ -2,7 +2,7 @@ package com.banking.TransactionService.dto.internal;
 
 import java.time.Instant;
 
-public class AuditLogResponse {
+public class AuditLogResponseDTO {
 
     private String action;
     private String performedBy;

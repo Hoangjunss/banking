@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-public class TransactionDetailResponse {
+public class TransactionDetailResponseDTO {
 
     private String transactionId;
     private String referenceCode;

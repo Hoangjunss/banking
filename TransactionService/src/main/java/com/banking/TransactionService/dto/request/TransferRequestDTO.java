@@ -3,7 +3,7 @@ package com.banking.TransactionService.dto.request;
 
 import java.math.BigDecimal;
 
-public class TransferRequest {
+public class TransferRequestDTO {
 
     private String fromAccountId;
     private String toAccountId;
