@@ -11,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "accounts")
+@Data
 public class Account {
 
     @Id
