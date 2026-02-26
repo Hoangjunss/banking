@@ -22,8 +22,7 @@ public class AccountEventServiceImpl implements AccountEventService {
         event.setId(UUID.randomUUID());
         event.setAccountId(accountId);
         event.setEventType(eventType);
-        event.setDescription(description);
-        event.setCreatedAt(LocalDateTime.now());
+        event.setOccurredAt(LocalDateTime.now());
 
         eventRepository.save(event);
     }
