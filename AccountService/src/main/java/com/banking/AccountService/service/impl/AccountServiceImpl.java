@@ -35,7 +35,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountResponseDTO openAccount(OpenAccountRequestDTO request) {
         // 1. Lưu Account
-        Account account = accountMapper.toEntity(request);
+        Account account = accountMapper.fromOpenToEntity(request);
         account.setStatus(AccountStatus.ACTIVE);
         Account savedAccount = accountRepository.save(account);
 
@@ -94,7 +94,7 @@ public class AccountServiceImpl implements AccountService {
         // Gọi LimitService để xử lý logic cập nhật hạn mức
         limitService.updateLimit(account, request);
 
-        eventService.logEvent(id, "SET_LIMIT", "New limit set for type: " + request.getLimitType());
+        eventService.logEvent(id, "SET_LIMIT", "New limit set for type: " + request.getType());
         outboxService.createEvent(id, AGGREGATE_TYPE, "LIMIT_CHANGED", request);
     }
 
