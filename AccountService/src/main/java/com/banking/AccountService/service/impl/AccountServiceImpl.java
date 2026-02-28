@@ -22,6 +22,7 @@ import java.util.UUID;
 @Transactional
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
+    private static final String AGGREGATE_TYPE = "ACCOUNT";
 
     private final AccountRepository accountRepository;
     private final AccountMapper accountMapper;
@@ -34,7 +35,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountResponseDTO openAccount(OpenAccountRequestDTO request) {
         // 1. Lưu Account
-        Account account = accountMapper.toEntity(request);
+        Account account = accountMapper.fromOpenToEntity(request);
         account.setStatus(AccountStatus.ACTIVE);
         Account savedAccount = accountRepository.save(account);
 
@@ -45,7 +46,7 @@ public class AccountServiceImpl implements AccountService {
         eventService.logEvent(savedAccount.getId(), "OPEN_ACCOUNT", "System initialized");
 
         // 4. Gọi Outbox Service để đồng bộ sang Balance Service
-        outboxService.createEvent(savedAccount.getId(), "ACCOUNT_CREATED", savedAccount);
+        outboxService.createEvent(savedAccount.getId(), AGGREGATE_TYPE, "ACCOUNT_CREATED", savedAccount);
 
         return accountMapper.toResponseDTO(savedAccount);
     }
@@ -55,7 +56,7 @@ public class AccountServiceImpl implements AccountService {
         Account account = getAccountOrThrow(id);
 
         // Cập nhật thông tin cơ bản
-        account.setDisplayName(request.getDisplayName()); // Giả định bạn có field này
+        // account.setDisplayName(request.getDisplayName()); // Giả định bạn có field này
         // ... các field khác từ request
 
         Account updatedAccount = accountRepository.save(account);
@@ -67,12 +68,12 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void freezeAccount(UUID id, FreezeAccountRequestDTO request) {
         Account account = getAccountOrThrow(id);
-        account.setStatus(AccountStatus.LOCKED); // Hoặc FROZEN tùy Enum của bạn
+        account.setStatus(AccountStatus.FROZEN); // Hoặc FROZEN tùy Enum của bạn
 
         accountRepository.save(account);
 
         eventService.logEvent(id, "FREEZE_ACCOUNT", "Reason: " + request.getReason());
-        outboxService.createEvent(id, "ACCOUNT_FROZEN", request);
+        outboxService.createEvent(id, AGGREGATE_TYPE, "ACCOUNT_FROZEN", request);
     }
 
     @Override
@@ -83,7 +84,7 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
 
         eventService.logEvent(id, "UNFREEZE_ACCOUNT", "Account reactivated");
-        outboxService.createEvent(id, "ACCOUNT_UNFROZEN", null);
+        outboxService.createEvent(id, AGGREGATE_TYPE, "ACCOUNT_UNFROZEN", null);
     }
 
     @Override
@@ -93,8 +94,8 @@ public class AccountServiceImpl implements AccountService {
         // Gọi LimitService để xử lý logic cập nhật hạn mức
         limitService.updateLimit(account, request);
 
-        eventService.logEvent(id, "SET_LIMIT", "New limit set for type: " + request.getLimitType());
-        outboxService.createEvent(id, "LIMIT_CHANGED", request);
+        eventService.logEvent(id, "SET_LIMIT", "New limit set for type: " + request.getType());
+        outboxService.createEvent(id, AGGREGATE_TYPE, "LIMIT_CHANGED", request);
     }
 
     @Override
@@ -106,7 +107,7 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.save(account);
 
         eventService.logEvent(id, "CLOSE_ACCOUNT", "Reason: " + request.getReason());
-        outboxService.createEvent(id, "ACCOUNT_CLOSED", null);
+        outboxService.createEvent(id, AGGREGATE_TYPE, "ACCOUNT_CLOSED", null);
     }
 
     // Hàm dùng chung để tránh lặp code

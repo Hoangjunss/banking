@@ -10,20 +10,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class AccountEventServiceImpl implements AccountEventService {
     private final AccountEventRepository eventRepository;
 
     @Override
-    @Transactional(propagation = Propagation.MANDATORY) // Luôn chạy chung transaction với AccountService
+    @Transactional(propagation = Propagation.MANDATORY)
     public void logEvent(UUID accountId, String eventType, String description) {
         AccountEvent event = new AccountEvent();
         event.setId(UUID.randomUUID());
         event.setAccountId(accountId);
         event.setEventType(eventType);
-        event.setDescription(description);
-        event.setCreatedAt(LocalDateTime.now());
+        event.setPayload(description); // quan trọng: không bỏ quên
+        event.setOccurredAt(LocalDateTime.now());
 
         eventRepository.save(event);
     }

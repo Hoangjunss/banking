@@ -2,6 +2,7 @@ package com.banking.AccountService.mapper;
 
 
 
+import com.banking.AccountService.dto.request.OpenAccountRequestDTO;
 import com.banking.AccountService.dto.response.AccountResponseDTO;
 import com.banking.AccountService.entity.Account;
 import org.mapstruct.Mapper;
@@ -19,4 +20,13 @@ public interface AccountMapper {
     // Ngược lại nếu bạn cần tạo Entity từ DTO (thường dùng cho Create/Update)
     @Mapping(target = "version", ignore = true) // Luôn ignore version khi map từ DTO
     Account toEntity(AccountResponseDTO dto);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "accountNumber", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "openedAt", ignore = true)
+    @Mapping(target = "closedAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
+    @Mapping(target = "type", expression = "java(AccountType.valueOf(request.getType()))")
+    Account fromOpenToEntity(OpenAccountRequestDTO request);
 }
