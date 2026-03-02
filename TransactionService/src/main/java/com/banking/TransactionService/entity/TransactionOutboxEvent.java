@@ -2,16 +2,14 @@ package com.banking.TransactionService.entity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 @Builder
 @Data
 @Entity
 @Table(name = "outbox_events")
-public class OutboxEvent {
+public class TransactionOutboxEvent {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -41,9 +39,9 @@ public class OutboxEvent {
      * - correct event type
      * - consistent payload structure
      */
-    public static OutboxEvent transactionCompleted(Transaction tx) {
+    public static TransactionOutboxEvent transactionCompleted(Transaction tx) {
 
-        return OutboxEvent.builder()
+        return TransactionOutboxEvent.builder()
                 .aggregateType("TRANSACTION")
                 .aggregateId(tx.getId())
                 .eventType("TRANSACTION_COMPLETED")

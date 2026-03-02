@@ -6,10 +6,9 @@ import com.banking.TransactionService.dto.request.WithdrawRequestDTO;
 import com.banking.TransactionService.dto.response.TransactionResponseDTO;
 import com.banking.TransactionService.entity.Transaction;
 import com.banking.TransactionService.entity.TransactionStatus;
-import com.banking.TransactionService.entity.TransactionType;
 import com.banking.TransactionService.mapper.TransactionMapper;
 import com.banking.TransactionService.repository.TransactionRepository;
-import com.banking.TransactionService.service.OutboxService;
+import com.banking.TransactionService.service.TransactionOutboxService;
 import com.banking.TransactionService.service.TransactionAuditService;
 import com.banking.TransactionService.service.TransactionEntryService;
 import com.banking.TransactionService.service.TransactionService;
@@ -32,20 +31,20 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final TransactionEntryService entryService;
-    private final OutboxService outboxService;
+    private final TransactionOutboxService transactionOutboxService;
     private final TransactionAuditService auditService;
     private final TransactionMapper transactionMapper;
 
     public TransactionServiceImpl(
             TransactionRepository transactionRepository,
             TransactionEntryService entryService,
-            OutboxService outboxService,
+            TransactionOutboxService transactionOutboxService,
             TransactionAuditService auditService,
             TransactionMapper transactionMapper
     ) {
         this.transactionRepository = transactionRepository;
         this.entryService = entryService;
-        this.outboxService = outboxService;
+        this.transactionOutboxService = transactionOutboxService;
         this.auditService = auditService;
         this.transactionMapper = transactionMapper;
     }
@@ -72,7 +71,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         // 4. Audit & publish integration event
         auditService.logCompleted(tx);
-        outboxService.publishTransactionCompleted(tx);
+        transactionOutboxService.publishTransactionCompleted(tx);
 
         return transactionMapper.toResponse(tx);
     }
@@ -95,7 +94,7 @@ public class TransactionServiceImpl implements TransactionService {
         successTransaction(tx);
 
         auditService.logCompleted(tx);
-        outboxService.publishTransactionCompleted(tx);
+        transactionOutboxService.publishTransactionCompleted(tx);
 
         return transactionMapper.toResponse(tx);
     }
@@ -118,7 +117,7 @@ public class TransactionServiceImpl implements TransactionService {
         successTransaction(tx);
 
         auditService.logCompleted(tx);
-        outboxService.publishTransactionCompleted(tx);
+        transactionOutboxService.publishTransactionCompleted(tx);
 
         return transactionMapper.toResponse(tx);
     }
