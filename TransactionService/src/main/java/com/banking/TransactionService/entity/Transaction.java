@@ -38,6 +38,12 @@ public class Transaction {
     @Column(nullable = false)
     private String initiatedBy; // userId
 
+    @Column
+    private UUID fromAccountId;
+
+    @Column
+    private UUID toAccountId;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
