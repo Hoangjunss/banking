@@ -20,9 +20,9 @@ public class TransactionOutboxServiceImpl implements TransactionOutboxService {
     @Transactional(propagation = Propagation.MANDATORY)// chạy chung transaction với TransactionService
     @Override
     public void publishTransactionCompleted(Transaction transaction) {
-        String payload = serialize(transaction);
+
         outboxRepository.save(
-                TransactionOutboxEvent.transactionCompleted(transaction, payload)
+                TransactionOutboxEvent.transactionCompleted(transaction)
         );
     }
 
