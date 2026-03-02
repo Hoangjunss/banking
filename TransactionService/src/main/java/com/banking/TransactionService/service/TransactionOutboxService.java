@@ -8,4 +8,5 @@ public interface TransactionOutboxService {
     void publishCreditRequested(Transaction tx);
     void publishCompleted(Transaction tx);
     void publishFailed(Transaction tx);
+    void publishRefundRequested(Transaction tx);
 }

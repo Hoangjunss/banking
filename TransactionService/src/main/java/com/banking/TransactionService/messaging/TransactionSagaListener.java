@@ -10,6 +10,7 @@ import com.banking.TransactionService.service.TransactionOutboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,21 +38,26 @@ public class TransactionSagaListener {
      */
     @KafkaListener(topics = "balance-events", groupId = "transaction-service")
     @Transactional
-    public void handleAccountEvents(String message) throws Exception {
+    public void handleBalanceEvents(ConsumerRecord<String, String> record) {
+        try {
+            SagaEvent event = objectMapper.readValue(record.value(), SagaEvent.class);
 
-        SagaEvent event = objectMapper.readValue(message, SagaEvent.class);
+            Transaction tx = transactionRepository
+                    .findById(UUID.fromString(event.getTransactionId()))
+                    .orElseThrow(() -> new RuntimeException(
+                            "Transaction not found: " + event.getTransactionId()));
 
-        Transaction tx = transactionRepository
-                .findById(UUID.fromString(event.getTransactionId()))
-                .orElseThrow();
+            switch (event.getType()) {
+                case "DEBIT_COMPLETED"  -> handleDebitCompleted(tx);
+                case "CREDIT_COMPLETED" -> handleCreditCompleted(tx);
+                case "DEBIT_FAILED"     -> handleDebitFailed(tx, event.getReason());
+                case "CREDIT_FAILED"    -> handleCreditFailed(tx, event.getReason());
+                case "REFUND_COMPLETED" -> handleRefundCompleted(tx);
+                default -> log.warn("Unknown saga event: {}", event.getType());
+            }
 
-        switch (event.getType()) {
-
-            case "DEBIT_COMPLETED" -> handleDebitCompleted(tx);
-
-            case "CREDIT_COMPLETED" -> handleCreditCompleted(tx);
-
-            case "DEBIT_FAILED", "CREDIT_FAILED" -> handleFailed(tx);
+        } catch (Exception e) {
+            log.error("Failed to process saga event: {}", record.value(), e);
         }
     }
 
@@ -82,18 +88,29 @@ public class TransactionSagaListener {
         outboxService.publishCompleted(tx);
     }
 
-    /*
-     ==============================
-     any step fail → FAILED
-     ==============================
-     */
-    private void handleFailed(Transaction tx) {
-        log.info("Transfer failed: {}", tx.getId());
-
+    // Debit fail → không có gì để hoàn, mark failed luôn
+    private void handleDebitFailed(Transaction tx, String reason) {
+        log.warn(" Debit failed ({}): {}", reason, tx.getId());
         tx.setStatus(TransactionStatus.FAILED);
-
         transactionRepository.save(tx);
-
         outboxService.publishFailed(tx);
     }
+
+    private void handleCreditFailed(Transaction tx, String reason) {
+        log.warn("❌ Credit failed → compensating: {}", tx.getId());
+        tx.setStatus(TransactionStatus.COMPENSATING);
+        transactionRepository.save(tx);
+
+        // Yêu cầu BalanceService hoàn tiền lại fromAccount
+        outboxService.publishRefundRequested(tx);
+    }
+
+    private void handleRefundCompleted(Transaction tx) {
+        log.info("Refund completed → mark failed: {}", tx.getId());
+        tx.setStatus(TransactionStatus.FAILED);
+        transactionRepository.save(tx);
+        outboxService.publishFailed(tx);
+    }
+
+
 }

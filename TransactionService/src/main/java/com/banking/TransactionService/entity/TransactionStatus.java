@@ -40,5 +40,7 @@ public enum TransactionStatus {
      * Money already deducted but reverted.
      * (Saga rollback)
      */
-    REVERSED
+    REVERSED,
+
+    COMPENSATING
 }

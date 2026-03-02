@@ -66,6 +66,10 @@ public class TransactionOutboxEvent {
         return build(tx, "TRANSACTION_FAILED");
     }
 
+    public static TransactionOutboxEvent refundRequested(Transaction tx) {
+        return build(tx, "REFUND_REQUESTED");
+    }
+
     private static TransactionOutboxEvent build(Transaction tx, String type) {
         return TransactionOutboxEvent.builder()
                 .aggregateType("TRANSACTION")
@@ -79,6 +83,7 @@ public class TransactionOutboxEvent {
     private static String buildPayload(Transaction tx, String eventType) {
         ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> payload = Map.of(
+                "transactionId", tx.getId().toString(),
                 "aggregateType", "TRANSACTION",
                 "aggregateId", tx.getId(),
                 "eventType", eventType,
