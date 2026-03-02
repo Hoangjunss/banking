@@ -27,6 +27,9 @@ public interface TransactionMapper {
     @Mapping(target = "referenceCode", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "completedAt", ignore = true)
+    @Mapping(target = "fromAccountId", ignore = true)
+    @Mapping(target = "toAccountId", source = "toAccountId")
+    @Mapping(target = "initiatedBy", source = "toAccountId")
     Transaction toDepositEntity(DepositRequestDTO request);
 
     // ===== WITHDRAW =====
@@ -36,6 +39,9 @@ public interface TransactionMapper {
     @Mapping(target = "referenceCode", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "completedAt", ignore = true)
+    @Mapping(target = "fromAccountId", source = "fromAccountId")
+    @Mapping(target = "toAccountId", ignore = true)
+    @Mapping(target = "initiatedBy", source = "fromAccountId")
     Transaction toWithdrawEntity(WithdrawRequestDTO request);
 
     // ===== TRANSFER =====
@@ -45,6 +51,9 @@ public interface TransactionMapper {
     @Mapping(target = "referenceCode", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "completedAt", ignore = true)
+    @Mapping(target = "fromAccountId", source = "fromAccountId")
+    @Mapping(target = "toAccountId", source = "toAccountId")
+    @Mapping(target = "initiatedBy", source = "fromAccountId")
     Transaction toTransferEntity(TransferRequestDTO request);
 
     TransactionResponseDTO toResponse(Transaction transaction);
