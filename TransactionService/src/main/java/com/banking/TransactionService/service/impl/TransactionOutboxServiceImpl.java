@@ -9,28 +9,45 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
-
 @Service
 @RequiredArgsConstructor
 public class TransactionOutboxServiceImpl implements TransactionOutboxService {
 
     private final TransactionOutboxEventRepository outboxRepository;
-    private final ObjectMapper objectMapper;
 
-    @Transactional(propagation = Propagation.MANDATORY)// chạy chung transaction với TransactionService
+    /*
+     * MUST run inside TransactionService transaction
+     * → guarantee atomicity (transaction + outbox same commit)
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
     @Override
-    public void publishTransactionCompleted(Transaction transaction) {
-
+    public void publishDebitRequested(Transaction tx) {
         outboxRepository.save(
-                TransactionOutboxEvent.transactionCompleted(transaction)
+                TransactionOutboxEvent.debitRequested(tx)
         );
     }
 
-    private String serialize(Object obj) {
-        try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to serialize outbox payload", e);
-        }
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Override
+    public void publishCreditRequested(Transaction tx) {
+        outboxRepository.save(
+                TransactionOutboxEvent.creditRequested(tx)
+        );
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Override
+    public void publishCompleted(Transaction tx) {
+        outboxRepository.save(
+                TransactionOutboxEvent.completed(tx)
+        );
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Override
+    public void publishFailed(Transaction tx) {
+        outboxRepository.save(
+                TransactionOutboxEvent.failed(tx)
+        );
     }
 }

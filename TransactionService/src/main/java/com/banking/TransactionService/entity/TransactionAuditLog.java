@@ -6,10 +6,10 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
-@Data
-@Builder
 @Entity
 @Table(name = "transaction_audit_logs")
+@Data
+@Builder
 public class TransactionAuditLog {
 
     @Id
@@ -18,8 +18,9 @@ public class TransactionAuditLog {
 
     private UUID transactionId;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String action; // CREATED, VALIDATED, COMPLETED, FAILED
+    private AuditAction action;
 
     @Column(nullable = false)
     private String performedBy; // userId / system
@@ -29,17 +30,22 @@ public class TransactionAuditLog {
 
     @Column(length = 500)
     private String details;
-    /**
-     * Factory method for completed transaction audit log.
-     */
-    public static TransactionAuditLog completed(Transaction tx) {
 
+    /* ======================================================
+       Factory helpers
+       ====================================================== */
+
+    public static TransactionAuditLog of(
+            Transaction tx,
+            AuditAction action,
+            String details
+    ) {
         return TransactionAuditLog.builder()
                 .transactionId(tx.getId())
-                .action("COMPLETED")
+                .action(action)
                 .performedBy(tx.getInitiatedBy())
                 .performedAt(Instant.now())
-                .details("Transaction completed successfully")
+                .details(details)
                 .build();
     }
 }
