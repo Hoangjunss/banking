@@ -1,10 +1,15 @@
 package com.banking.TransactionService.entity;
+
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Data;
+import org.springframework.boot.json.JsonParseException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
+
 @Builder
 @Data
 @Entity
@@ -66,19 +71,30 @@ public class TransactionOutboxEvent {
                 .aggregateType("TRANSACTION")
                 .aggregateId(tx.getId())
                 .eventType(type)
-                .payload(buildPayload(tx))
+                .payload(buildPayload(tx, type))
                 .status(OutboxStatus.PENDING)
                 .createdAt(Instant.now())
                 .build();
     }
-    private static String buildPayload(Transaction tx) {
-        // Có thể thay bằng ObjectMapper sau
-        return String.format(
-                "{ \"transactionId\": \"%s\", \"type\": \"%s\", \"amount\": %s }",
-                tx.getId(),
-                tx.getType(),
-                tx.getAmount()
+    private static String buildPayload(Transaction tx, String eventType) {
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> payload = Map.of(
+                "aggregateType", "TRANSACTION",
+                "aggregateId", tx.getId(),
+                "eventType", eventType,
+                "initiatedBy", tx.getInitiatedBy(),
+                "fromAccountId", tx.getFromAccountId(),
+                "toAccountId", tx.getToAccountId(),
+                "amount", tx.getAmount(),
+                "type", tx.getType(),
+                "referenceCode", tx.getReferenceCode()
         );
+
+        try {
+            return mapper.writeValueAsString(payload);
+        } catch (JsonParseException e) {
+            throw new RuntimeException("Failed to build payload", e);
+        }
     }
 
 }
