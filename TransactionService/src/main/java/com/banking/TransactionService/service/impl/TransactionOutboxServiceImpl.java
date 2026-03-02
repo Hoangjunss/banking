@@ -50,4 +50,13 @@ public class TransactionOutboxServiceImpl implements TransactionOutboxService {
                 TransactionOutboxEvent.failed(tx)
         );
     }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Override
+    public void publishRefundRequested(Transaction tx) {
+        outboxRepository.save(
+                TransactionOutboxEvent.refundRequested(tx)
+        );
+
+    }
 }
