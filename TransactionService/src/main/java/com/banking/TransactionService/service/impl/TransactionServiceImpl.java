@@ -1,17 +1,13 @@
 package com.banking.TransactionService.service.impl;
 
-import com.banking.TransactionService.dto.request.DepositRequestDTO;
-import com.banking.TransactionService.dto.request.TransferRequestDTO;
-import com.banking.TransactionService.dto.request.WithdrawRequestDTO;
+import com.banking.TransactionService.dto.request.*;
 import com.banking.TransactionService.dto.response.TransactionResponseDTO;
 import com.banking.TransactionService.entity.Transaction;
 import com.banking.TransactionService.entity.TransactionStatus;
 import com.banking.TransactionService.mapper.TransactionMapper;
 import com.banking.TransactionService.repository.TransactionRepository;
-import com.banking.TransactionService.service.TransactionOutboxService;
-import com.banking.TransactionService.service.TransactionAuditService;
-import com.banking.TransactionService.service.TransactionEntryService;
-import com.banking.TransactionService.service.TransactionService;
+import com.banking.TransactionService.service.*;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,134 +15,169 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Application service responsible for orchestrating transaction use cases.
+ * =============================================================
+ * Transaction Application Service (Orchestrator)
+ * =============================================================
+ *
  * Responsibilities:
- * - create and manage Transaction aggregate lifecycle
- * - delegate accounting logic to TransactionEntryService
- * - delegate integration events to OutboxService
- * - ensure transactional consistency
- */@Service
+ * - Manage Transaction aggregate lifecycle
+ * - Create accounting ledger entries
+ * - Trigger integration events via Outbox
+ * - Orchestrate Saga for distributed operations (TRANSFER)
+ *
+ * Patterns used:
+ * - Transactional Outbox
+ * - Saga (orchestrator-based)
+ * - Double-entry bookkeeping
+ *
+ * Rules:
+ * - DEPOSIT/WITHDRAW → local → complete immediately
+ * - TRANSFER → distributed → Saga → async completion
+ *
+ */
+@Service
 @Transactional
 public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final TransactionEntryService entryService;
-    private final TransactionOutboxService transactionOutboxService;
+    private final TransactionOutboxService outboxService;
     private final TransactionAuditService auditService;
-    private final TransactionMapper transactionMapper;
+    private final TransactionMapper mapper;
 
     public TransactionServiceImpl(
             TransactionRepository transactionRepository,
             TransactionEntryService entryService,
-            TransactionOutboxService transactionOutboxService,
+            TransactionOutboxService outboxService,
             TransactionAuditService auditService,
-            TransactionMapper transactionMapper
+            TransactionMapper mapper
     ) {
         this.transactionRepository = transactionRepository;
         this.entryService = entryService;
-        this.transactionOutboxService = transactionOutboxService;
+        this.outboxService = outboxService;
         this.auditService = auditService;
-        this.transactionMapper = transactionMapper;
+        this.mapper = mapper;
     }
 
-    /**
-     * Handle DEPOSIT transaction.
-     *
-     * <p>Money flows INTO an account.</p>
-     */
+    /* =====================================================
+       DEPOSIT
+       -----------------------------------------------------
+       Single account → local DB only
+       → no Saga required
+       → safe to complete immediately
+       ===================================================== */
+
     @Override
     public TransactionResponseDTO deposit(DepositRequestDTO request) {
 
-        // 1. Create transaction aggregate from request
-        Transaction tx = transactionMapper.toDepositEntity(request);
-        enrichTransaction(tx);
+        // 1. Create aggregate
+        Transaction tx = mapper.toDepositEntity(request);
+        enrich(tx);
 
         transactionRepository.save(tx);
 
         // 2. Create credit ledger entry
         entryService.createDepositEntries(tx, request);
 
-        // 3. Mark transaction as completed
-        successTransaction(tx);
+        // 3. Mark completed immediately (local operation)
+        markSuccess(tx);
 
-        // 4. Audit & publish integration event
+        // 4. Audit + publish integration event
         auditService.logCompleted(tx);
-        transactionOutboxService.publishTransactionCompleted(tx);
+        outboxService.publishCompleted(tx);
 
-        return transactionMapper.toResponse(tx);
+        return mapper.toResponse(tx);
     }
 
-    /**
-     * Handle WITHDRAW transaction.
-     *
-     * <p>Money flows OUT of an account.</p>
-     */
+    /* =====================================================
+       WITHDRAW
+       -----------------------------------------------------
+       Single account → local DB only
+       → no Saga required
+       ===================================================== */
+
     @Override
     public TransactionResponseDTO withdraw(WithdrawRequestDTO request) {
 
-        Transaction tx = transactionMapper.toWithdrawEntity(request);
-        enrichTransaction(tx);
+        Transaction tx = mapper.toWithdrawEntity(request);
+        enrich(tx);
 
         transactionRepository.save(tx);
 
         entryService.createWithdrawEntries(tx, request);
 
-        successTransaction(tx);
+        // complete immediately
+        markSuccess(tx);
 
         auditService.logCompleted(tx);
-        transactionOutboxService.publishTransactionCompleted(tx);
+        outboxService.publishCompleted(tx);
 
-        return transactionMapper.toResponse(tx);
+        return mapper.toResponse(tx);
     }
 
-    /**
-     * Handle TRANSFER transaction.
-     *
-     * <p>Money flows FROM source account TO destination account.</p>
-     */
+    /* =====================================================
+       TRANSFER  🔥 SAGA ENTRY POINT
+       -----------------------------------------------------
+       Two accounts → cross service → distributed
+       → MUST use Saga
+       → cannot mark SUCCESS here
+       -----------------------------------------------------
+       Flow:
+       1) status = PROCESSING
+       2) publish DEBIT_REQUESTED
+       3) BalanceService executes debit
+       4) later Kafka callback completes saga
+       ===================================================== */
+
     @Override
     public TransactionResponseDTO transfer(TransferRequestDTO request) {
 
-        Transaction tx = transactionMapper.toTransferEntity(request);
-        enrichTransaction(tx);
+        Transaction tx = mapper.toTransferEntity(request);
+        enrich(tx);
+
+        // 🔥 IMPORTANT:
+        // do NOT mark success here
+        // money not moved yet
+        tx.setStatus(TransactionStatus.PROCESSING);
 
         transactionRepository.save(tx);
 
+        // create double-entry bookkeeping records
         entryService.createTransferEntries(tx, request);
 
-        successTransaction(tx);
+        // audit creation only
+        auditService.logCreated(tx);
 
-        auditService.logCompleted(tx);
-        transactionOutboxService.publishTransactionCompleted(tx);
+        // 🔥 Start Saga by requesting debit from BalanceService
+        outboxService.publishDebitRequested(tx);
 
-        return transactionMapper.toResponse(tx);
+        return mapper.toResponse(tx);
     }
 
+    /* =====================================================
+       Helpers
+       ===================================================== */
+
     /**
-     * Enrich transaction aggregate with system-managed fields.
-     *
-     * <p>This method ensures all transactions share
-     * consistent reference generation.</p>
+     * Enrich system-managed fields.
+     * Ensures all transactions have a public-safe reference.
      */
-    private void enrichTransaction(Transaction tx) {
+    private void enrich(Transaction tx) {
         tx.setReferenceCode(generateReference());
     }
 
     /**
-     * Mark transaction as completed.
-     *
-     * <p>Separated for clarity and reuse across use-cases.</p>
+     * Mark transaction as SUCCESS and set completion timestamp.
+     * Used only for local operations or final Saga step.
      */
-    private void successTransaction(Transaction tx) {
+    private void markSuccess(Transaction tx) {
         tx.setStatus(TransactionStatus.SUCCESS);
         tx.setCompletedAt(Instant.now());
     }
 
     /**
-     * Generate public transaction reference code.
-     *
-     * <p>This reference is exposed to end users and external systems
-     * and MUST NOT expose internal database identifiers.</p>
+     * Generate external-safe reference code.
+     * Never expose internal DB ID to clients.
      */
     private String generateReference() {
         return "TX-" + UUID.randomUUID();

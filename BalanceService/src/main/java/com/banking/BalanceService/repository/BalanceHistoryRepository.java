@@ -25,4 +25,6 @@ public interface BalanceHistoryRepository extends JpaRepository<BalanceHistory, 
 
     // Tìm theo loại giao dịch
     List<BalanceHistory> findByAccountIdAndType(UUID accountId, TransactionType type);
+
+    boolean existsByTransactionId(UUID transactionId);
 }

@@ -10,6 +10,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -19,6 +20,7 @@ public class TransactionOutboxMessageRelay {
 
     private final TransactionOutboxEventRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private static final int MAX_RETRY = 5;
 
     @Scheduled(fixedDelay = 1000)
     @Transactional
@@ -27,27 +29,58 @@ public class TransactionOutboxMessageRelay {
                 .findByStatusInOrderByCreatedAtAsc(
                         List.of(OutboxStatus.PENDING, OutboxStatus.FAILED)
                 );
+        if (events.isEmpty()) return;
 
+        log.info("Processing {} outbox events", events.size());
+
+        /* ==============================
+           mark PROCESSING first (lock)
+           ============================== */
+        events.forEach(e -> e.setStatus(OutboxStatus.PROCESSING));
+        outboxRepository.saveAll(events);
+
+        /* ==============================
+           send kafka async
+           ============================== */
         for (TransactionOutboxEvent event : events) {
-            try {
-                String topic = event.getAggregateType().toLowerCase() + "-events";
-                // "TRANSACTION" → "transaction-events"
 
+            String topic = buildTopic(event);
+
+            try {
                 kafkaTemplate.send(
                         topic,
                         event.getAggregateId().toString(),
                         event.getPayload()
-                ).get();
+                );
 
                 event.setStatus(OutboxStatus.SENT);
-                log.info("Sent: {} - {}", event.getEventType(), event.getId());
 
-            } catch (Exception e) {
-                event.setStatus(OutboxStatus.FAILED);
-                log.error("Failed: {}", event.getId(), e);
+                log.info("✅ Sent {} - {}", event.getEventType(), event.getId());
+
+            } catch (Exception ex) {
+
+                int retry = event.getRetryCount() + 1;
+                event.setRetryCount(retry);
+
+                if (retry >= MAX_RETRY) {
+                    log.error("❌ Max retry reached: {}", event.getId());
+                    event.setStatus(OutboxStatus.FAILED);
+                } else {
+                    event.setStatus(OutboxStatus.FAILED);
+                    event.setNextRetryAt(Instant.now().plusSeconds(10 * retry));
+                }
             }
-
-            outboxRepository.save(event);
         }
+
+        outboxRepository.saveAll(events);
     }
+
+    /* ==============================
+       helper
+       ============================== */
+
+    private String buildTopic(TransactionOutboxEvent e) {
+        return e.getAggregateType().toLowerCase() + "-events";
+    }
+
 }

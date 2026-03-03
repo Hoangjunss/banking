@@ -11,6 +11,7 @@ import com.banking.BalanceService.repository.BalanceHistoryRepository;
 import com.banking.BalanceService.repository.BalanceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,12 +26,24 @@ public class BalanceServiceImpl implements BalanceService {
     private final BalanceRepository balanceRepository;
     private final BalanceHistoryRepository historyRepository;
     private final BalanceMapper balanceMapper;
+    private final BalanceCacheService cacheService;
+    private final IdempotencyService idempotencyService;
 
+
+    @Cacheable(value = "balance", key = "#accountId")
     @Override
     public BalanceResponseDTO getBalance(UUID accountId) {
+        BalanceResponseDTO cached = cacheService.get(accountId);
+        if(cached != null) return cached;
+
         Balance balance = balanceRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new RuntimeException("Tài khoản không tồn tại"));
-        return balanceMapper.toResponseDTO(balance);
+
+        BalanceResponseDTO response = balanceMapper.toResponseDTO(balance);
+
+        cacheService.put(accountId, response);
+
+        return response;
     }
 
     @Override
@@ -42,6 +55,9 @@ public class BalanceServiceImpl implements BalanceService {
             return;
         }
 
+        if(idempotencyService.isProcessed(request.getTransactionId())) return;
+
+
         Balance balance = balanceRepository.findByAccountId(request.getAccountId())
                 .orElseGet(() -> createInitialBalance(request.getAccountId()));
 
@@ -51,11 +67,19 @@ public class BalanceServiceImpl implements BalanceService {
 
         saveHistory(request.getAccountId(), request.getTransactionId(),
                 request.getAmount(), oldBalance, balance.getAvailableBalance(), TransactionType.CREDIT);
+
+        // mark idempotent
+        idempotencyService.markProcessed(request.getTransactionId());
+
+        // evict cache
+        cacheService.evict(request.getAccountId());
     }
 
     @Override
     @Transactional
     public void debit(DebitRequestDTO request) {
+        if(idempotencyService.isProcessed(request.getTransactionId())) return;
+
         if (historyRepository.existsByTransactionId(request.getTransactionId())) return;
 
         Balance balance = balanceRepository.findByAccountId(request.getAccountId())
