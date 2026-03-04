@@ -10,16 +10,17 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 public class TransactionEventPayload {
-
     private UUID transactionId;
-    private String eventType;      // DEBIT_REQUESTED | CREDIT_REQUESTED
-    // TRANSACTION_COMPLETED | TRANSACTION_FAILED
-    private String type;           // DEPOSIT | WITHDRAW | TRANSFER
-    private BigDecimal amount;
+
+    private String aggregateType;
+    private UUID aggregateId;
+    private String eventType;
+
+    private String initiatedBy;
     private String fromAccountId;
     private String toAccountId;
+
+    private BigDecimal amount;
+    private String type;
     private String referenceCode;
-    private String initiatedBy;
-    private Instant completedAt;
-    private String description;
 }

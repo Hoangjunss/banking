@@ -1,4 +1,4 @@
-package com.banking.HistoryService.dto.response;
+package com.banking.HistoryService.dto.request;
 
 import com.banking.HistoryService.enums.BalanceChangeType;
 import lombok.AllArgsConstructor;
@@ -7,14 +7,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BalanceHistoryResponseDTO {
+public class BalanceHistoryCreateDTO {
 
     private UUID accountId;
     private UUID transactionId;
@@ -22,5 +21,4 @@ public class BalanceHistoryResponseDTO {
     private BigDecimal amount;
     private BigDecimal balanceBefore;
     private BigDecimal balanceAfter;
-    private Instant createdAt;
 }
