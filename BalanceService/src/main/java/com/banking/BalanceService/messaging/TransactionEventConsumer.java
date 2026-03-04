@@ -79,12 +79,12 @@ public class TransactionEventConsumer {
             balanceService.debit(request);
 
             // ✅ Debit thành công → báo TransactionService
-            publishBalanceEvent(payload.getTransactionId(), "DEBIT_COMPLETED", null);
+            publishBalanceEvent(payload.getTransactionId(), "DEBIT_COMPLETED", null, payload);
             log.info("✅ Debit completed: {}", payload.getTransactionId());
 
         } catch (Exception e) {
             // ❌ Không đủ số dư hoặc lỗi khác → báo fail
-            publishBalanceEvent(payload.getTransactionId(), "DEBIT_FAILED", e.getMessage());
+            publishBalanceEvent(payload.getTransactionId(), "DEBIT_FAILED", e.getMessage(), payload);
             log.warn("❌ Debit failed: {} - {}", payload.getTransactionId(), e.getMessage());
         }
     }
@@ -100,12 +100,12 @@ public class TransactionEventConsumer {
             balanceService.credit(request);
 
             // ✅ Credit thành công
-            publishBalanceEvent(payload.getTransactionId(), "CREDIT_COMPLETED", null);
+            publishBalanceEvent(payload.getTransactionId(), "CREDIT_COMPLETED", null, payload);
             log.info("✅ Credit completed: {}", payload.getTransactionId());
 
         } catch (Exception e) {
             // ❌ Credit fail → cần hoàn tiền lại
-            publishBalanceEvent(payload.getTransactionId(), "CREDIT_FAILED", e.getMessage());
+            publishBalanceEvent(payload.getTransactionId(), "CREDIT_FAILED", e.getMessage(), payload);
             log.warn("❌ Credit failed: {} - {}", payload.getTransactionId(), e.getMessage());
         }
     }
@@ -129,7 +129,7 @@ public class TransactionEventConsumer {
             // Dùng credit để hoàn tiền lại fromAccount
             balanceService.credit(request);
 
-            publishBalanceEvent(payload.getTransactionId(), "REFUND_COMPLETED", null);
+            publishBalanceEvent(payload.getTransactionId(), "REFUND_COMPLETED", null, payload);
             log.info("✅ Refund completed: {}", payload.getTransactionId());
 
         } catch (Exception e) {
@@ -140,12 +140,13 @@ public class TransactionEventConsumer {
     }
 
     // ── Helper publish về balance-events ──────────────────
-    private void publishBalanceEvent(UUID transactionId, String type, String reason) {
+    private void publishBalanceEvent(UUID transactionId, String type, String reason, TransactionEventPayload payload) {
         try {
             SagaEvent event = SagaEvent.builder()
                     .transactionId(transactionId.toString())
                     .type(type)
                     .reason(reason)
+                    .payload(payload)
                     .build();
 
             kafkaTemplate.send(
